@@ -1,0 +1,109 @@
+======================================================================
+TANGEDCO ICS ANOMALY DETECTION — SUMMARY REPORT
+Generated: 2026-05-01 16:54:18
+======================================================================
+
+DATASET SUMMARY
+----------------------------------------
+  Total observations : 8,760 hours (365 days)
+  Date range         : 2023-01-01 to 2023-12-31
+  True anomalies     : 40 hours (0.5% of dataset)
+
+DETECTION SUMMARY
+----------------------------------------
+  Total detections   : 794
+  Critical          : 17
+  High              : 764
+  Medium            : 13
+  Low               : 0
+
+ATTACK SCENARIOS DETECTED
+----------------------------------------
+
+  [Ransomware SCADA Blackout]
+    Duration injected : 14 hours
+    Detections        : 11
+    ATT&CK techniques : T0816 / T0813, Unknown
+    Highest confidence: 72% via IQR
+
+  [Demand Manipulation Unauthorised Command]
+    Duration injected : 4 hours
+    Detections        : 4
+    ATT&CK techniques : T0855 / T0826, Unknown
+    Highest confidence: 95% via Z-Score
+
+  [Sensor Spoofing MITM]
+    Duration injected : 13 hours
+    Detections        : 13
+    ATT&CK techniques : T0856
+    Highest confidence: 70% via OT Rule: SUSPICIOUS_FREQUENCY_PRECISION
+
+  [OffHours Privileged Access]
+    Duration injected : 3 hours
+    Detections        : 2
+    ATT&CK techniques : T0859 / T0855, Unknown — multi-feature deviation
+    Highest confidence: 90% via Isolation Forest
+
+  [Loss of View SCADA Wiper]
+    Duration injected : 6 hours
+    Detections        : 6
+    ATT&CK techniques : T0816 / T0813
+    Highest confidence: 95% via Z-Score
+
+MITRE ATT&CK FOR ICS COVERAGE
+----------------------------------------
+  T0855                          : 596 detections
+  T0859                          : 594 detections
+  Unknown — multi-feature deviation : 166 detections
+  T0816                          : 15 detections
+  T0813                          : 15 detections
+  T0856                          : 13 detections
+  Unknown                        : 4 detections
+  T0826                          : 2 detections
+
+TOP 15 HIGHEST-CONFIDENCE DETECTIONS
+----------------------------------------
+  [Critical] [ 95%] 2023-10-20 00:00  Z-Score  Technique: T0816 / T0813
+  [Critical] [ 95%] 2023-04-13 04:00  Z-Score  Technique: T0855 / T0826
+  [High    ] [ 90%] 2023-02-18 23:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-05-13 19:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-10 00:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-11 00:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-05-27 14:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-05-28 00:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-05-28 01:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-24 14:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-24 23:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-24 12:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-24 13:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-10 10:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+  [High    ] [ 90%] 2023-06-10 22:00  Isolation Forest  Technique: Unknown — multi-feature deviation
+
+DETECTION METHODOLOGY
+----------------------------------------
+  1. Z-Score (rolling 24h window, 3σ threshold)
+     Detects: sudden demand spikes, data dropouts
+  2. IQR (per-hour conditioned, 2.5× fence)
+     Detects: hour-of-day outliers missed by global Z-score
+  3. Isolation Forest (multi-feature, 2% contamination)
+     Detects: multi-dimensional combinations of subtle anomalies
+  4. OT Rule Engine (6 ICS-specific rules)
+     Detects: SCADA dropout, frequency excursion, off-hours
+     access, sensor flatline, power factor crash
+
+RECOMMENDATIONS
+----------------------------------------
+  1. Deploy Claroty or Dragos OT NDR for real-time equivalent
+     of this detection logic on live SCADA traffic.
+  2. Feed detections into SIEM (QRadar/Sentinel) alongside
+     IT security events for unified SOC correlation.
+  3. Tune IQR thresholds seasonally — Tamil Nadu peak demand
+     shifts significantly March–June (summer cooling load).
+  4. Add DNP3/IEC 104 protocol-level analysis for T0855
+     detection at the command level (requires OT NDR tap).
+  5. Implement automated SOAR response for Critical alerts:
+     isolate segment, capture PCAP, alert OT security lead.
+
+======================================================================
+END OF REPORT
+======================================================================

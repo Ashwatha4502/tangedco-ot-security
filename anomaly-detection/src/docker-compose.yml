@@ -1,0 +1,284 @@
+##############################################################
+# TANGEDCO SOC Lab — Docker Compose
+# Full stack: Wazuh + ELK + TheHive + MISP + Cortex
+#
+# Requirements: Docker Desktop, 16GB RAM minimum
+# Start:  docker-compose up -d
+# Stop:   docker-compose down
+# Logs:   docker-compose logs -f wazuh.manager
+#
+# Access points (after startup ~3-5 min):
+#   Wazuh Dashboard : https://localhost:443  (admin / SecretPassword)
+#   Kibana          : http://localhost:5601  (elastic / SecretPassword)
+#   TheHive         : http://localhost:9000  (admin@thehive.local / secret)
+#   MISP            : http://localhost:8080  (admin@admin.test / admin)
+#   Cortex          : http://localhost:9001  (admin / secret)
+##############################################################
+
+version: "3.8"
+
+networks:
+  tangedco-soc:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+
+volumes:
+  wazuh_api_configuration:
+  wazuh_etc:
+  wazuh_logs:
+  wazuh_queue:
+  wazuh_var_multigroups:
+  wazuh_integrations:
+  wazuh_active_response:
+  wazuh_agentless:
+  wazuh_wodles:
+  filebeat_etc:
+  filebeat_var:
+  wazuh-indexer-data:
+  thehive_data:
+  thehive_index:
+  cortex_jobs:
+  misp_db:
+  misp_data:
+
+services:
+
+  # ── Wazuh Manager ────────────────────────────────────────────
+  wazuh.manager:
+    image: wazuh/wazuh-manager:4.7.0
+    hostname: wazuh.manager
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.10
+    ports:
+      - "1514:1514"          # Agent communication (UDP)
+      - "1515:1515"          # Agent enrollment
+      - "514:514/udp"        # Syslog input (tangedco alerts)
+      - "55000:55000"        # Wazuh API
+    environment:
+      INDEXER_URL: https://wazuh.indexer:9200
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: SecretPassword
+      FILEBEAT_SSL_VERIFICATION_MODE: full
+      SSL_CERTIFICATE_AUTHORITIES: /etc/ssl/root-ca.pem
+      SSL_CERTIFICATE: /etc/ssl/filebeat.pem
+      SSL_KEY: /etc/ssl/filebeat.key
+      API_USERNAME: wazuh-wui
+      API_PASSWORD: MyS3cr3tPassword!
+    volumes:
+      - wazuh_api_configuration:/var/ossec/api/configuration
+      - wazuh_etc:/var/ossec/etc
+      - wazuh_logs:/var/ossec/logs
+      - wazuh_queue:/var/ossec/queue
+      - wazuh_var_multigroups:/var/ossec/var/multigroups
+      - wazuh_integrations:/var/ossec/integrations
+      - wazuh_active_response:/var/ossec/active-response/bin
+      - wazuh_agentless:/var/ossec/agentless
+      - wazuh_wodles:/var/ossec/wodles
+      - filebeat_etc:/etc/filebeat
+      - filebeat_var:/var/lib/filebeat
+      # Mount custom TANGEDCO rules and decoders
+      - ./wazuh/rules:/var/ossec/etc/rules/custom:ro
+      - ./wazuh/decoders:/var/ossec/etc/decoders/custom:ro
+
+  # ── Wazuh Indexer (OpenSearch) ────────────────────────────────
+  wazuh.indexer:
+    image: wazuh/wazuh-indexer:4.7.0
+    hostname: wazuh.indexer
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.11
+    ports:
+      - "9200:9200"
+    environment:
+      OPENSEARCH_JAVA_OPTS: "-Xms1g -Xmx1g"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+
+  # ── Wazuh Dashboard ───────────────────────────────────────────
+  wazuh.dashboard:
+    image: wazuh/wazuh-dashboard:4.7.0
+    hostname: wazuh.dashboard
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.12
+    ports:
+      - "443:5601"
+    environment:
+      INDEXER_USERNAME: admin
+      INDEXER_PASSWORD: SecretPassword
+      WAZUH_API_URL: https://wazuh.manager
+      DASHBOARD_USERNAME: kibanaserver
+      DASHBOARD_PASSWORD: kibanaserver
+      API_USERNAME: wazuh-wui
+      API_PASSWORD: MyS3cr3tPassword!
+    depends_on:
+      - wazuh.indexer
+      - wazuh.manager
+
+  # ── Elasticsearch ─────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    hostname: elasticsearch
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.20
+    ports:
+      - "9201:9200"
+    environment:
+      discovery.type: single-node
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+      xpack.security.enabled: "true"
+      ELASTIC_PASSWORD: SecretPassword
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ── Kibana ───────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.9
+    hostname: kibana
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.21
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: elastic
+      ELASTICSEARCH_PASSWORD: SecretPassword
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    volumes:
+      - ./kibana/tangedco_dashboard.ndjson:/usr/share/kibana/config/tangedco_dashboard.ndjson:ro
+
+  # ── TheHive ──────────────────────────────────────────────────
+  thehive:
+    image: strangebee/thehive:5.2
+    hostname: thehive
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.30
+    ports:
+      - "9000:9000"
+    environment:
+      JVM_OPTS: "-Xms512m -Xmx1g"
+    volumes:
+      - thehive_data:/opt/thehive/data
+      - thehive_index:/opt/thehive/index
+      - ./thehive/config/application.conf:/etc/thehive/application.conf:ro
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+
+  # ── Cortex (TheHive analyser engine) ─────────────────────────
+  cortex:
+    image: thehiveproject/cortex:3.1.7
+    hostname: cortex
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.31
+    ports:
+      - "9001:9001"
+    environment:
+      JVM_OPTS: "-Xms256m -Xmx512m"
+    volumes:
+      - cortex_jobs:/tmp/cortex-jobs
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # ── MISP ─────────────────────────────────────────────────────
+  misp:
+    image: coolacid/misp-docker:core-latest
+    hostname: misp
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.40
+    ports:
+      - "8080:80"
+      - "8443:443"
+    environment:
+      MYSQL_HOST: misp-db
+      MYSQL_DATABASE: misp
+      MYSQL_USER: misp
+      MYSQL_PASSWORD: misp_password
+      MISP_ADMIN_EMAIL: admin@tangedco.gov.in
+      MISP_ADMIN_PASSPHRASE: admin
+      MISP_BASEURL: http://localhost:8080
+      MISP_LIVE: 1
+    volumes:
+      - misp_data:/var/www/MISP
+    depends_on:
+      - misp-db
+
+  misp-db:
+    image: mysql:8.0
+    hostname: misp-db
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.41
+    environment:
+      MYSQL_DATABASE: misp
+      MYSQL_USER: misp
+      MYSQL_PASSWORD: misp_password
+      MYSQL_ROOT_PASSWORD: misp_root_password
+    volumes:
+      - misp_db:/var/lib/mysql
+    command: >
+      --default-authentication-plugin=mysql_native_password
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_unicode_ci
+
+  # ── Wazuh → TheHive integration webhook ──────────────────────
+  # Lightweight Python service that receives Wazuh webhooks
+  # and auto-creates TheHive cases for Critical/High alerts
+  soc-integrator:
+    image: python:3.11-slim
+    hostname: soc-integrator
+    restart: always
+    networks:
+      tangedco-soc:
+        ipv4_address: 10.10.0.50
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./scripts:/app
+    working_dir: /app
+    environment:
+      THEHIVE_URL: http://thehive:9000
+      THEHIVE_API_KEY: ${THEHIVE_API_KEY:-changeme}
+      MISP_URL: http://misp:80
+      MISP_KEY: ${MISP_KEY:-changeme}
+    command: >
+      sh -c "pip install -q flask requests && python integrator.py"
+    depends_on:
+      - thehive
+      - wazuh.manager

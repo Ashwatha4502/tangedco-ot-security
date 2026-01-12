@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>TANGEDCO — OT/IT Security Risk Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg0:#04080f;--bg1:#080f1c;--bg2:#0d1626;--bg3:#121e33;
+  --amber:#f5a623;--amber2:#fbbf24;--amber-dim:#7a5212;--amber-glow:rgba(245,166,35,.12);
+  --red:#ef4444;--orange:#f97316;--yellow:#eab308;--green:#22c55e;
+  --blue:#3b82f6;--cyan:#06b6d4;
+  --txt:#cdd6f4;--txt2:#8899bb;--txt3:#405070;
+  --border:#172035;--border2:#1e2f4a;
+  --mono:'Share Tech Mono',monospace;
+  --sans:'Barlow',sans-serif;--cond:'Barlow Condensed',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg0);color:var(--txt);font-family:var(--sans);font-size:14px;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.05) 3px,rgba(0,0,0,.05) 4px);pointer-events:none;z-index:9000}
+.grid-bg{position:fixed;inset:0;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:48px 48px;opacity:.3;pointer-events:none;z-index:0}
+.glow{position:fixed;width:700px;height:700px;border-radius:50%;background:radial-gradient(circle,rgba(245,166,35,.03) 0%,transparent 70%);top:-250px;right:-150px;pointer-events:none;z-index:0}
+.app{position:relative;z-index:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* HEADER */
+header{background:rgba(8,15,28,.97);border-bottom:1px solid var(--border2);padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:500;backdrop-filter:blur(8px)}
+.logo{display:flex;align-items:center;gap:14px}
+.logo svg{width:36px;height:36px;flex-shrink:0}
+.logo-text{font-family:var(--cond);font-size:20px;font-weight:800;letter-spacing:3px;text-transform:uppercase}
+.logo-sub{font-family:var(--mono);font-size:9px;color:var(--amber);letter-spacing:2px;margin-top:2px}
+.threat-pill{display:flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.06)}
+.threat-dot{width:8px;height:8px;border-radius:50%;background:var(--red);animation:blink 1.4s infinite}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(239,68,68,.5)}60%{opacity:.4;box-shadow:0 0 0 6px rgba(239,68,68,0)}}
+.threat-label{font-family:var(--mono);font-size:10px;color:#f87171;letter-spacing:1px}
+.clock{font-family:var(--mono);font-size:10px;color:var(--txt3);text-align:right;line-height:1.8}
+.clock span{color:var(--green)}
+
+/* NAV */
+nav{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 28px;display:flex;gap:0;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+.nb{font-family:var(--mono);font-size:10px;letter-spacing:1.5px;color:var(--txt3);background:none;border:none;border-bottom:2px solid transparent;margin-bottom:-1px;padding:14px 20px;cursor:pointer;transition:all .2s;white-space:nowrap;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.nb:hover{color:var(--txt);background:var(--amber-glow)}
+.nb.active{color:var(--amber);border-bottom-color:var(--amber)}
+.nc{font-size:9px;font-weight:700;padding:1px 5px;border-radius:10px;line-height:1.4}
+.nb.active .nc{background:var(--amber);color:#000}
+.nb:not(.active) .nc{background:var(--bg3);color:var(--txt3)}
+
+/* MAIN */
+main{flex:1;padding:24px 28px;max-width:1440px;width:100%;margin:0 auto}
+
+/* SECTION HDR */
+.sh{margin-bottom:20px;display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.st{font-family:var(--cond);font-size:28px;font-weight:800;letter-spacing:2px;text-transform:uppercase}
+.st em{color:var(--amber);font-style:normal}
+.ss{font-family:var(--mono);font-size:10px;color:var(--txt3);letter-spacing:1.5px;margin-top:4px}
+.sv{font-family:var(--mono);font-size:10px;padding:4px 10px;border:1px solid var(--border2);color:var(--txt3)}
+
+/* STAT CARDS */
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:22px}
+.sc{background:var(--bg1);border:1px solid var(--border2);padding:16px 18px;position:relative;overflow:hidden;transition:border-color .2s}
+.sc:hover{border-color:var(--acc,var(--amber-dim))}
+.sc::before{content:'';position:absolute;top:0;left:0;width:3px;height:100%;background:var(--acc,var(--amber))}
+.sl{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:2px;text-transform:uppercase;margin-bottom:10px}
+.sv2{font-family:var(--cond);font-size:42px;font-weight:800;color:var(--acc,var(--amber));line-height:1}
+.sb{font-size:11px;color:var(--txt3);margin-top:5px}
+.sbar{height:2px;background:var(--bg3);margin-top:10px;border-radius:1px;overflow:hidden}
+.sbar-f{height:100%;background:var(--acc,var(--amber));border-radius:1px}
+
+/* PANEL */
+.panel{background:var(--bg1);border:1px solid var(--border2);margin-bottom:18px}
+.ph{padding:12px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.pt{font-family:var(--mono);font-size:10px;color:var(--txt2);letter-spacing:2px;text-transform:uppercase}
+.pm{font-family:var(--mono);font-size:10px;color:var(--txt3)}
+.pb{padding:18px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 8px;font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;border-radius:2px;white-space:nowrap}
+.bc{background:rgba(239,68,68,.15);color:#f87171;border:1px solid rgba(239,68,68,.3)}
+.bh{background:rgba(249,115,22,.15);color:#fb923c;border:1px solid rgba(249,115,22,.3)}
+.bm{background:rgba(234,179,8,.15);color:#fbbf24;border:1px solid rgba(234,179,8,.3)}
+.bl{background:rgba(34,197,94,.15);color:#4ade80;border:1px solid rgba(34,197,94,.3)}
+.bit{background:rgba(59,130,246,.12);color:#60a5fa;border:1px solid rgba(59,130,246,.25)}
+.bot{background:rgba(6,182,212,.12);color:#22d3ee;border:1px solid rgba(6,182,212,.25)}
+.bnc{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.25)}
+.bpa{background:rgba(234,179,8,.12);color:#fbbf24;border:1px solid rgba(234,179,8,.25)}
+.bco{background:rgba(34,197,94,.12);color:#4ade80;border:1px solid rgba(34,197,94,.25)}
+
+/* TABLE */
+.tw{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--txt3);padding:10px 12px;border-bottom:1px solid var(--border2);text-align:left;background:var(--bg2);white-space:nowrap;cursor:pointer;user-select:none}
+th:hover{color:var(--amber)}
+th.sa::after{content:' ▲';color:var(--amber);font-size:8px}
+th.sd::after{content:' ▼';color:var(--amber);font-size:8px}
+td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle;line-height:1.5}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(245,166,35,.03)}
+.rid{font-family:var(--mono);font-size:11px;color:var(--amber);font-weight:700}
+.cref{font-family:var(--mono);font-size:9px;color:var(--txt3);line-height:1.8}
+.sco{font-family:var(--mono);font-size:14px;font-weight:700;text-align:center;padding:10px 8px}
+
+/* FILTER BAR */
+.fb{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center}
+.fbtn{font-family:var(--mono);font-size:10px;padding:5px 12px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt3);cursor:pointer;transition:all .15s;letter-spacing:.5px}
+.fbtn:hover,.fbtn.active{background:var(--amber-glow);border-color:var(--amber-dim);color:var(--amber)}
+.srch{font-family:var(--mono);font-size:11px;padding:5px 12px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt);outline:none;width:220px;transition:border-color .15s}
+.srch:focus{border-color:var(--amber-dim)}
+.srch::placeholder{color:var(--txt3)}
+
+/* ZONE CARDS */
+.zg{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.zc{background:var(--bg2);border:1px solid var(--border2);padding:16px;position:relative;overflow:hidden;transition:border-color .2s,transform .15s;cursor:default}
+.zc:hover{border-color:var(--zclr,var(--amber-dim));transform:translateY(-2px)}
+.zc::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:3px;background:var(--zclr,var(--amber))}
+.zid{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:3px;margin-bottom:6px}
+.zname{font-family:var(--cond);font-size:18px;font-weight:800;letter-spacing:1px}
+.zlevel{font-family:var(--mono);font-size:9px;color:var(--txt3);margin-bottom:12px;letter-spacing:1px}
+.zassets{font-size:12px;color:var(--txt2);margin-bottom:14px;line-height:1.6}
+.zslrow{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.zsll{font-family:var(--mono);font-size:9px;color:var(--txt3);width:60px;flex-shrink:0}
+.zslbar{flex:1;height:3px;background:var(--bg0);border-radius:2px;overflow:hidden}
+.zslf{height:100%;border-radius:2px;background:var(--zclr,var(--amber))}
+.zslv{font-family:var(--mono);font-size:11px;font-weight:700;color:var(--zclr,var(--amber));width:28px;text-align:right}
+
+/* CONDUIT */
+.cl{display:flex;flex-direction:column;gap:10px}
+.ci{background:var(--bg2);border:1px solid var(--border2);padding:14px;transition:border-color .2s}
+.ci:hover{border-color:var(--border2)}
+.citop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.cid2{font-family:var(--mono);font-size:10px;color:var(--amber);font-weight:700;width:28px}
+.cflow{display:flex;align-items:center;gap:6px;flex:1;flex-wrap:wrap}
+.ctag{font-family:var(--mono);font-size:10px;padding:3px 8px;background:var(--bg3);border:1px solid var(--border2);color:var(--txt2)}
+.carr{color:var(--amber);font-size:12px}
+.cpurp{font-size:11px;color:var(--txt3);margin-bottom:6px}
+.cctrl{font-family:var(--mono);font-size:10px;color:var(--cyan);line-height:1.7}
+
+/* SCENARIOS */
+.sctabs{display:flex;gap:6px;margin-bottom:18px;flex-wrap:wrap}
+.sctab{font-family:var(--mono);font-size:10px;padding:8px 16px;background:var(--bg2);border:1px solid var(--border2);color:var(--txt3);cursor:pointer;transition:all .2s;letter-spacing:.5px}
+.sctab.active{background:var(--amber-glow);border-color:var(--amber-dim);color:var(--amber)}
+.sccard{background:var(--bg2);border:1px solid var(--border2)}
+.sctop{padding:18px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.sctitle{font-family:var(--cond);font-size:22px;font-weight:800;letter-spacing:1px}
+.scmeta{font-family:var(--mono);font-size:10px;color:var(--txt3);margin-top:8px;line-height:2}
+.scmeta span{color:var(--txt2)}
+.tchip{font-family:var(--cond);font-size:12px;font-weight:700;padding:5px 14px;border:1px solid;letter-spacing:1px;text-transform:uppercase;flex-shrink:0;white-space:nowrap}
+.tcc{color:#f87171;border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.08)}
+.tch{color:#fb923c;border-color:rgba(249,115,22,.4);background:rgba(249,115,22,.08)}
+.chain{padding:18px}
+.chaintitle{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:2px;margin-bottom:16px;text-transform:uppercase}
+.phase{display:flex;gap:0;margin-bottom:6px;position:relative}
+.phase::before{content:'';position:absolute;left:136px;top:28px;bottom:-6px;width:1px;background:linear-gradient(to bottom,var(--amber-dim),transparent);z-index:0}
+.phase:last-child::before{display:none}
+.plbl{width:130px;flex-shrink:0;font-family:var(--mono);font-size:9px;color:var(--amber);letter-spacing:.5px;padding:14px 10px 0 0;text-align:right;line-height:1.4;text-transform:uppercase}
+.pnode{width:14px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding-top:16px;z-index:1}
+.pdot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 8px var(--amber);flex-shrink:0}
+.pbody{flex:1;background:var(--bg3);border:1px solid var(--border2);padding:12px 14px;margin-left:8px}
+.ptech{font-family:var(--mono);font-size:9px;color:var(--cyan);letter-spacing:.5px;margin-bottom:5px}
+.paction{font-size:12px;color:var(--txt);line-height:1.6;margin-bottom:6px}
+.pioc{font-family:var(--mono);font-size:10px;color:var(--txt3);line-height:1.6}
+.piocl{color:var(--amber-dim);font-size:9px}
+
+/* SIEM */
+.si{background:var(--bg2);border:1px solid var(--border2);margin-bottom:6px;overflow:hidden}
+.sih{padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:background .15s;user-select:none}
+.sih:hover{background:rgba(245,166,35,.03)}
+.siid{font-family:var(--mono);font-size:10px;color:var(--amber);width:48px;flex-shrink:0}
+.sinm{font-weight:600;font-size:13px;flex:1}
+.sichev{font-size:10px;color:var(--txt3);margin-left:8px;transition:transform .2s;flex-shrink:0}
+.sibody{padding:14px 16px;border-top:1px solid var(--border);display:none;background:var(--bg3)}
+.sibody.open{display:block}
+.sifield{display:flex;gap:12px;margin-bottom:8px;align-items:flex-start}
+.sikey{font-family:var(--mono);font-size:9px;color:var(--txt3);width:90px;flex-shrink:0;letter-spacing:.5px;padding-top:1px;text-transform:uppercase}
+.sival{font-size:12px;color:var(--txt2);flex:1;line-height:1.5}
+.lbox{background:var(--bg0);border:1px solid var(--border);border-left:3px solid var(--green);padding:10px 14px;font-family:var(--mono);font-size:11px;color:var(--green);margin-top:4px;line-height:1.7}
+
+/* FOOTER */
+footer{background:var(--bg1);border-top:1px solid var(--border);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.fl,.fr{font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:1px}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:var(--bg0)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+.fu{animation:fadeUp .35s ease forwards}
+.fu1{animation-delay:.05s;opacity:0}
+.fu2{animation-delay:.1s;opacity:0}
+.fu3{animation-delay:.15s;opacity:0}
+
+@media(max-width:768px){
+  header{padding:0 16px}
+  main{padding:16px}
+  .sg{grid-template-columns:repeat(2,1fr)}
+  nav{padding:0 12px}
+  .nb{padding:10px 12px}
+}
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="glow"></div>
+<div class="app">
+
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 36 36"><polygon points="18,2 34,10 34,26 18,34 2,26 2,10" fill="none" stroke="#f5a623" stroke-width="1.5"/><text x="18" y="23" text-anchor="middle" font-family="Share Tech Mono" font-size="14" fill="#f5a623">⚡</text></svg>
+    <div>
+      <div class="logo-text">TANGEDCO</div>
+      <div class="logo-sub">OT / IT Security Risk Dashboard</div>
+    </div>
+  </div>
+  <div class="threat-pill">
+    <div class="threat-dot"></div>
+    <div class="threat-label">6 CRITICAL RISKS ACTIVE</div>
+  </div>
+  <div class="clock">
+    <span id="cd">—</span><br>
+    <span id="ct">—</span> IST
+  </div>
+</header>
+
+<nav>
+  <button class="nb active" onclick="showTab('overview',this)">Overview <span class="nc">16</span></button>
+  <button class="nb" onclick="showTab('register',this)">Risk Register <span class="nc">16</span></button>
+  <button class="nb" onclick="showTab('zones',this)">IEC 62443 Zones <span class="nc">6</span></button>
+  <button class="nb" onclick="showTab('scenarios',this)">Attack Scenarios <span class="nc">3</span></button>
+  <button class="nb" onclick="showTab('siem',this)">SIEM Use Cases <span class="nc">10</span></button>
+</nav>
+
+<main>
+
+<!-- OVERVIEW -->
+<div id="tab-overview">
+  <div class="sh fu">
+    <div><div class="st">Security <em>Overview</em></div><div class="ss">ISO/IEC 27001:2022 · SEMI-QUANTITATIVE RISK SCORING · ASSESSMENT DATE: MAY 2025</div></div>
+    <div class="sv">VERSION 2.0</div>
+  </div>
+  <div class="sg">
+    <div class="sc fu fu1" style="--acc:#ef4444"><div class="sl">Critical Risks</div><div class="sv2">6</div><div class="sb">Score ≥ 20 · Immediate</div><div class="sbar"><div class="sbar-f" style="width:37%"></div></div></div>
+    <div class="sc fu fu2" style="--acc:#f97316"><div class="sl">High Risks</div><div class="sv2">8</div><div class="sb">Score 13–19 · Short-term</div><div class="sbar"><div class="sbar-f" style="width:50%"></div></div></div>
+    <div class="sc fu fu3" style="--acc:#eab308"><div class="sl">Medium Risks</div><div class="sv2">2</div><div class="sb">Score 6–12 · Medium-term</div><div class="sbar"><div class="sbar-f" style="width:12%"></div></div></div>
+    <div class="sc fu fu1" style="--acc:#ef4444"><div class="sl">Non-Conformant</div><div class="sv2">5</div><div class="sb">ISO 27001 Annex A Controls</div><div class="sbar"><div class="sbar-f" style="width:50%"></div></div></div>
+    <div class="sc fu fu2" style="--acc:#f97316"><div class="sl">Partial Controls</div><div class="sv2">5</div><div class="sb">ISO 27001 Annex A Controls</div><div class="sbar"><div class="sbar-f" style="width:50%"></div></div></div>
+    <div class="sc fu fu3" style="--acc:#06b6d4"><div class="sl">OT/SCADA Risks</div><div class="sv2">8</div><div class="sb">Across 6 IEC 62443 zones</div><div class="sbar"><div class="sbar-f" style="width:50%"></div></div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:start">
+    <div class="panel fu"><div class="ph"><span class="pt">Risk Heat Map</span><span class="pm">LIKELIHOOD × IMPACT</span></div><div class="pb" id="hm-container"></div></div>
+    <div class="panel fu"><div class="ph"><span class="pt">Critical &amp; High Risk Summary</span><span class="pm">SORTED BY SCORE</span></div><div class="pb" style="padding:0"><div class="tw"><table id="top-tbl"></table></div></div></div>
+  </div>
+  <div class="panel fu"><div class="ph"><span class="pt">ISO 27001:2022 Annex A Gap Analysis</span><span class="pm">10 CONTROLS ASSESSED</span></div><div class="pb" style="padding:0"><div class="tw"><table id="gap-tbl"></table></div></div></div>
+</div>
+
+<!-- REGISTER -->
+<div id="tab-register" style="display:none">
+  <div class="sh"><div><div class="st">Risk <em>Register</em></div><div class="ss">16 RISKS · IT INFRASTRUCTURE & OT/SCADA · L × I METHODOLOGY · CLICK HEADERS TO SORT</div></div></div>
+  <div class="fb">
+    <input class="srch" id="rsrch" placeholder="Search risks, assets, threats…" oninput="renderReg()"/>
+    <button class="fbtn active" onclick="setRF(this,'all')">All (16)</button>
+    <button class="fbtn" onclick="setRF(this,'IT')">IT (8)</button>
+    <button class="fbtn" onclick="setRF(this,'OT/SCADA')">OT/SCADA (8)</button>
+    <button class="fbtn" onclick="setRF(this,'Critical')">Critical (6)</button>
+    <button class="fbtn" onclick="setRF(this,'High')">High (8)</button>
+    <button class="fbtn" onclick="setRF(this,'Medium')">Medium (2)</button>
+  </div>
+  <div class="panel"><div class="pb" style="padding:0"><div class="tw"><table id="reg-tbl"></table></div></div></div>
+</div>
+
+<!-- ZONES -->
+<div id="tab-zones" style="display:none">
+  <div class="sh"><div><div class="st">IEC 62443 <em>Zone & Conduit Model</em></div><div class="ss">PURDUE ENTERPRISE REFERENCE ARCHITECTURE · TANGEDCO NETWORK SEGMENTATION</div></div></div>
+  <div style="display:grid;grid-template-columns:1fr 360px;gap:16px;align-items:start">
+    <div>
+      <div class="panel"><div class="ph"><span class="pt">Zone Architecture</span><span class="pm">CURRENT vs TARGET SECURITY LEVEL</span></div><div class="pb"><div class="zg" id="zone-grid"></div></div></div>
+    </div>
+    <div>
+      <div class="panel"><div class="ph"><span class="pt">Conduit Specifications</span></div><div class="pb" style="padding:12px"><div class="cl" id="cond-list"></div></div></div>
+      <div class="panel"><div class="ph"><span class="pt">Security Level Reference</span></div><div class="pb" style="padding:0">
+        <table style="width:100%">
+          <tr><th>Level</th><th>Threat Actor</th><th>Target Zones</th></tr>
+          <tr><td><span class="badge bl">SL-1</span></td><td style="font-size:12px">Casual / opportunistic</td><td style="font-size:11px;color:var(--txt3)">All zones (minimum)</td></tr>
+          <tr><td><span class="badge bm">SL-2</span></td><td style="font-size:12px">Intentional, low resources</td><td style="font-size:11px;color:var(--txt3)">Z-1 Enterprise, Z-2 DMZ</td></tr>
+          <tr><td><span class="badge bh">SL-3</span></td><td style="font-size:12px">Sophisticated, ICS tools</td><td style="font-size:11px;color:var(--txt3)">Z-3 Operations, Z-4 Control</td></tr>
+          <tr><td><span class="badge bc">SL-4</span></td><td style="font-size:12px">Nation-state APT</td><td style="font-size:11px;color:var(--txt3)">Z-6 Process / SIS</td></tr>
+        </table>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- SCENARIOS -->
+<div id="tab-scenarios" style="display:none">
+  <div class="sh"><div><div class="st">Attack <em>Scenarios</em></div><div class="ss">MITRE ATT&CK FOR ICS · REAL-WORLD THREAT WALKTHROUGHS · INDICATORS OF COMPROMISE</div></div></div>
+  <div class="sctabs">
+    <button class="sctab active" onclick="showSc(0,this)">A — Ransomware / IT-OT Pivot</button>
+    <button class="sctab" onclick="showSc(1,this)">B — Nation-State SCADA (Industroyer2)</button>
+    <button class="sctab" onclick="showSc(2,this)">C — Safety System Attack (TRITON-class)</button>
+  </div>
+  <div id="sc-display"></div>
+</div>
+
+<!-- SIEM -->
+<div id="tab-siem" style="display:none">
+  <div class="sh"><div><div class="st">SIEM <em>Detection Use Cases</em></div><div class="ss">MITRE ATT&CK MAPPED · SPLUNK / QRADAR / SENTINEL · CLICK ROW TO EXPAND</div></div></div>
+  <div class="fb">
+    <input class="srch" id="ssrch" placeholder="Search use cases…" oninput="renderSiem()"/>
+    <button class="fbtn active" onclick="setSF(this,'all')">All (10)</button>
+    <button class="fbtn" onclick="setSF(this,'IT')">IT</button>
+    <button class="fbtn" onclick="setSF(this,'OT')">OT</button>
+    <button class="fbtn" onclick="setSF(this,'IT+OT')">IT+OT</button>
+  </div>
+  <div id="siem-list"></div>
+</div>
+
+</main>
+<footer>
+  <div class="fl">TANGEDCO — CYBERSECURITY RISK ASSESSMENT v2.0 · ISO/IEC 27001:2022 · IEC 62443 · MITRE ATT&CK FOR ICS</div>
+  <div class="fr">CLASSIFICATION: CONFIDENTIAL — RESTRICTED</div>
+</footer>
+</div>
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────────
+const R=[
+  {id:"IT-01",d:"IT",a:"Corporate Servers/File Shares",t:"Ransomware Attack",v:"Unpatched OS; no immutable backups",L:4,I:5,c:"A.8.7, A.8.13, A.8.32",tx:"EDR deployment, patch SLA <30 days, air-gapped backups"},
+  {id:"IT-02",d:"IT",a:"Employee Endpoints",t:"Phishing / Business Email Compromise",v:"No MFA; low security awareness; 30%+ phishing click-through",L:5,I:4,c:"A.6.3, A.5.17, A.8.5",tx:"Enterprise MFA, quarterly phishing simulations, awareness training"},
+  {id:"IT-03",d:"IT",a:"Active Directory / IAM",t:"Privilege Escalation / Insider Abuse",v:"Excessive privileges; stale accounts; no PAM",L:3,I:5,c:"A.5.15, A.5.18, A.8.2",tx:"PAM solution, least privilege enforcement, quarterly access reviews"},
+  {id:"IT-04",d:"IT",a:"Customer Billing & Payment System",t:"Data Breach (PII & Financial)",v:"Weak encryption at rest; inadequate DB access controls",L:3,I:5,c:"A.8.24, A.5.34, A.8.11",tx:"Encrypt data at rest/transit, tokenize payments, annual VAPT"},
+  {id:"IT-05",d:"IT",a:"Network Infrastructure",t:"IT–OT Lateral Movement",v:"Flat network; no DMZ; no IT/OT segmentation",L:4,I:5,c:"A.8.20, A.8.22",tx:"Implement DMZ, Purdue Model segmentation, strict firewall ACLs"},
+  {id:"IT-06",d:"IT",a:"Third-Party Vendor Access",t:"Supply Chain / Third-Party Compromise",v:"No vendor assessments; unrestricted persistent VPN",L:3,I:4,c:"A.5.19, A.5.20, A.5.22",tx:"TPRM program, just-in-time privileged vendor access"},
+  {id:"IT-07",d:"IT",a:"Data Centre Infrastructure",t:"Physical Intrusion / Hardware Theft",v:"No CCTV on server racks; inadequate access logging",L:2,I:4,c:"A.7.2, A.7.3, A.7.4",tx:"Biometric access, 24/7 CCTV with log retention, DCIM controls"},
+  {id:"IT-08",d:"IT",a:"Backup & Recovery Systems",t:"Backup Failure / RTO/RPO Breach",v:"Backups untested; single-site storage; no DR drills",L:3,I:4,c:"A.8.13, A.5.29, A.5.30",tx:"Automate backup verification, 3-2-1 strategy, annual DR drills"},
+  {id:"OT-01",d:"OT/SCADA",a:"SCADA / Energy Management System",t:"Nation-State / APT Grid Disruption",v:"Internet-exposed HMI; default credentials on legacy devices",L:3,I:5,c:"A.8.20, A.8.5, A.7.1",tx:"Air-gap EMS, credential hardening, ICS IDS (Claroty/Dragos)"},
+  {id:"OT-02",d:"OT/SCADA",a:"PLCs & RTUs (Substations)",t:"Malware/Firmware Tampering (Industroyer-class)",v:"Unpatched firmware; no integrity checking on field devices",L:3,I:5,c:"A.8.8, A.8.9, A.8.32",tx:"OT patch management, firmware signing & validation, vendor SLAs"},
+  {id:"OT-03",d:"OT/SCADA",a:"Remote Access – Engineering Workstations",t:"Unauthorised Remote Access to ICS",v:"VPN-only remote access; no MFA; no session recording on OT",L:4,I:5,c:"A.8.5, A.8.15, A.5.17",tx:"MFA + PAM for OT remote access, record all privileged sessions"},
+  {id:"OT-04",d:"OT/SCADA",a:"Historian / Data Acquisition Systems",t:"Operational Data Exfiltration",v:"No DLP; historian server on corporate LAN",L:3,I:3,c:"A.8.12, A.8.24, A.8.20",tx:"Network segregation for historian, DLP on outbound data, anomaly detection"},
+  {id:"OT-05",d:"OT/SCADA",a:"ICS Protocols (Modbus, DNP3)",t:"Protocol Replay / Man-in-the-Middle",v:"Unencrypted legacy protocols; no message authentication",L:2,I:5,c:"A.8.24, A.8.20, A.8.22",tx:"DNP3 Secure Authentication v5, encrypted protocol wrappers"},
+  {id:"OT-06",d:"OT/SCADA",a:"Control Room / Operator Workstations",t:"Insider Threat / Operator Error",v:"Shared operator accounts; no session audit trail",L:3,I:4,c:"A.6.3, A.8.5, A.8.15",tx:"Individual operator accounts, MFA, session recording, anomaly alerting"},
+  {id:"OT-07",d:"OT/SCADA",a:"Physical Grid Assets (Substations)",t:"Physical Sabotage / Tampering",v:"Inadequate perimeter security at remote unmanned substations",L:2,I:5,c:"A.7.1, A.7.2, A.7.4, A.7.11",tx:"IP cameras, motion sensors, tamper-evident seals, security patrols"},
+  {id:"OT-08",d:"OT/SCADA",a:"ICS Vendor / OEM Remote Support",t:"Vendor-Initiated Compromise (Supply Chain)",v:"Persistent vendor VPN with no oversight or recording",L:3,I:5,c:"A.5.19, A.5.22, A.8.5",tx:"Vendor jump server, session monitoring, time-limited access tokens"},
+];
+
+const GAPS=[
+  {th:"A.5",c:"A.5.7 Threat Intelligence",s:"Partial",f:"No formal threat intel; CERT-In feeds not integrated into SOC",r:"Subscribe to CERT-In & ICS-CERT feeds; integrate into SIEM"},
+  {th:"A.5",c:"A.5.19–5.22 Supplier Security",s:"Non-Conformant",f:"Vendor risk assessments not conducted; no security clauses in supplier contracts",r:"Implement formal TPRM program across all IT and OT suppliers"},
+  {th:"A.5",c:"A.5.29 Business Continuity",s:"Partial",f:"IT BCP exists but does not cover OT/SCADA disruption scenarios",r:"Extend BCP to grid control failures; test OT DR annually"},
+  {th:"A.6",c:"A.6.3 Security Awareness",s:"Non-Conformant",f:"No structured awareness program; OT staff untrained on ICS threats",r:"Annual mandatory training; ICS-specific modules for OT operators"},
+  {th:"A.7",c:"A.7.1–7.4 Physical Security",s:"Partial",f:"Data centre has basic controls; remote substations lack CCTV and motion sensors",r:"Deploy IP cameras and tamper alarms at all unmanned substations"},
+  {th:"A.8",c:"A.8.5 Privileged Access Mgmt",s:"Non-Conformant",f:"No PAM solution; shared admin accounts across IT and OT environments",r:"Deploy PAM (CyberArk/BeyondTrust); eliminate all shared admin accounts"},
+  {th:"A.8",c:"A.8.8 Vulnerability Management",s:"Partial",f:"IT scanning in place; OT devices not scanned due to fragility concerns",r:"Implement passive OT-safe scanning (Claroty, Dragos); define OT patch SLAs"},
+  {th:"A.8",c:"A.8.16 Monitoring Activities",s:"Non-Conformant",f:"SIEM covers IT only; no OT network monitoring or ICS anomaly detection",r:"Deploy OT-specific NDR; feed alerts into unified SOC"},
+  {th:"A.8",c:"A.8.20–8.22 Network Security",s:"Partial",f:"IT/OT segmentation incomplete; no DMZ between corporate LAN and SCADA",r:"Implement Purdue Model; deploy unidirectional security gateways (data diodes)"},
+  {th:"A.8",c:"A.8.24 Cryptography",s:"Non-Conformant",f:"Legacy ICS protocols (Modbus, DNP3) unencrypted; no cryptography policy exists",r:"Develop cryptography policy; prioritise ICS protocol encryption upgrades"},
+];
+
+const ZONES=[
+  {id:"Z-1",n:"Enterprise",lv:"Purdue L4–L5",sl:2,tsl:2,as:"SAP ERP, billing portal, email (M365), HR systems, corporate LAN",g:"Partial",c:"#3b82f6",gd:"MFA absent on remote access; AD hardening incomplete"},
+  {id:"Z-2",n:"DMZ",lv:"Purdue L3.5",sl:0,tsl:2,as:"SCADA Historian, patch server, vendor jump host (NOT YET IMPLEMENTED)",g:"Non-Conformant",c:"#f97316",gd:"DMZ does not yet exist; historian sits on corporate LAN"},
+  {id:"Z-3",n:"Operations",lv:"Purdue L3",sl:1,tsl:3,as:"EMS, SCADA master station, DMS, operations servers, SOC workstations",g:"Non-Conformant",c:"#ef4444",gd:"No OT NDR; shared operator accounts; unencrypted ICS protocol traffic"},
+  {id:"Z-4",n:"Control",lv:"Purdue L2",sl:1,tsl:3,as:"HMI servers, engineering workstations, real-time database (RTDB)",g:"Non-Conformant",c:"#ef4444",gd:"End-of-life OS on workstations; no application whitelisting"},
+  {id:"Z-5",n:"Field",lv:"Purdue L1",sl:1,tsl:2,as:"PLCs, RTUs at substations and generating stations",g:"Non-Conformant",c:"#ef4444",gd:"Unpatched firmware; default credentials on legacy devices"},
+  {id:"Z-6",n:"Process / SIS",lv:"Purdue L0",sl:0,tsl:4,as:"Sensors, actuators, protection relays, safety shutdown systems (SIS)",g:"Non-Conformant",c:"#ef4444",gd:"SIS not air-gapped; no SIS integrity monitoring in place"},
+];
+
+const CONDS=[
+  {id:"C-1",f:"Z-1 Enterprise",t:"Z-2 DMZ",p:"Data replication, patch distribution",ctrl:"Stateful firewall; whitelist by port/IP; no bi-directional DMZ→Enterprise initiation"},
+  {id:"C-2",f:"Z-2 DMZ",t:"Z-3 Operations",p:"Historian write, admin jump-host access",ctrl:"Data diode for historian; MFA + session recording via jump host"},
+  {id:"C-3",f:"Z-3 Operations",t:"Z-4 Control",p:"SCADA commands to HMI and RTDB",ctrl:"TLS 1.3; application-layer firewall; no internet access from Z-4"},
+  {id:"C-4",f:"Z-4 Control",t:"Z-5 Field",p:"IEC 104 / DNP3 / Modbus to PLCs & RTUs",ctrl:"Protocol-aware firewall; DNP3-SA v5; OT NDR anomaly detection on commands"},
+  {id:"C-5",f:"Z-3 Operations",t:"Ext. Vendor",p:"OEM vendor remote support",ctrl:"Vendor jump server; MFA; time-limited tokens (max 1hr); full session recording"},
+  {id:"C-6",f:"Z-5 Field",t:"Z-6 Process/SIS",p:"Physical I/O to sensors & SIS comms",ctrl:"Air-gap SIS from all IP networks; copper-only serial for SIS I/O; zero IP to SIS"},
+];
+
+const SC=[
+  {title:"Scenario A — Ransomware with IT/OT Pivot",actor:"Financially motivated ransomware group (LockBit 3.0 / BlackCat ALPHV)",prob:"HIGH",chip:"tch",
+    phases:[
+      {l:"INITIAL ACCESS",tc:"T0865 – Spear-phishing",ac:"Invoice-themed phishing targets TANGEDCO finance staff. Malicious macro in Excel attachment executes PowerShell dropper on a corporate endpoint.",ioc:"Outbound C2 beacon; PowerShell spawned by Office process; Base64-encoded command arguments"},
+      {l:"EXECUTION & PERSISTENCE",tc:"T0807 – Command-Line Interface / T0859 – Valid Accounts",ac:"Attacker establishes persistence via scheduled task mimicking Windows Update. Mimikatz credential harvester extracts Active Directory NTLM hashes.",ioc:"New scheduled task with encoded payload; LSASS memory read (Sysmon Event ID 10); duplicate logon sessions"},
+      {l:"LATERAL MOVEMENT",tc:"T0886 – Remote Services / T0812 – Default Credentials",ac:"Harvested domain admin credentials used to pivot via RDP and SMB. Adversary reaches SCADA historian server still on corporate LAN segment.",ioc:"Anomalous RDP sessions from non-IT source hosts; SMB connections targeting historian server IP"},
+      {l:"DISCOVERY",tc:"T0840 – Network Connection Enumeration",ac:"nmap and native Windows tools map SCADA subnet (192.168.100.0/24). Identifies EMS workstations, HMI servers, and engineering PCs.",ioc:"Internal port scan originating from corporate host; ARP table anomalies; SCADA subnet traffic from non-OT source"},
+      {l:"IMPACT",tc:"T0882 – Operational Data Theft / T0816 – Device Restart",ac:"Ransomware encrypts IT servers and propagates toward historian. OT team shuts EMS down precautionarily. Grid operations revert to manual control for 6–18 hours.",ioc:"Mass file rename (.tangedco extension); VSS shadow copy deletion; EMS communication loss alarm; ransom note dropped on shared drives"},
+    ]
+  },
+  {title:"Scenario B — Nation-State SCADA Attack (Industroyer2-class)",actor:"Nation-state APT (Sandworm / Volt Typhoon-class) — pre-positioning for grid disruption",prob:"MEDIUM-HIGH",chip:"tcc",
+    phases:[
+      {l:"INITIAL ACCESS",tc:"T0866 – Exploitation of Remote Services",ac:"APT exploits an unpatched CVE on TANGEDCO's VPN appliance to gain foothold on the DMZ jump server used for SCADA remote access. No MFA in place.",ioc:"Auth attempts from foreign IP range; VPN appliance spawning cmd.exe; new admin account created on jump server"},
+      {l:"ESTABLISH FOOTHOLD",tc:"T0859 – Valid Accounts (Privileged)",ac:"Backdoor implanted on engineering workstation. Adversary spends 3–6 months mapping IEC 104 RTU addresses, substation IDs, and circuit breaker command structures.",ioc:"Low-volume anomalous traffic to RTU IP ranges outside maintenance windows; unexpected DLL loaded into SCADA process memory"},
+      {l:"DEVELOP CAPABILITY",tc:"T0830 – Adversary-in-the-Middle",ac:"Attacker reverse-engineers TANGEDCO-specific IEC 104 ASDU command structure. Builds custom Industroyer2-class payload entirely offline — no network-visible IOC.",ioc:"No network-visible IOC at this phase — development occurs offline on attacker infrastructure"},
+      {l:"EXECUTE ATTACK",tc:"T0855 – Unauthorised Command Message",ac:"Crafted IEC 104 C_DC_NA_1 (double command) packets sent simultaneously to open circuit breakers at multiple 110kV substations. Wiper module deletes SCADA workstation MBR.",ioc:"Burst of IEC 104 Type ID 3 commands from non-EMS source IP; simultaneous breaker OPEN events across substations; HMI workstation fails to boot"},
+      {l:"IMPACT",tc:"T0826 – Loss of Availability / T0813 – Denial of View",ac:"Multiple 110kV feeders trip simultaneously. Operators lose SCADA visibility (wiper killed HMI). Manual field inspection required — 4–8 hour regional power outage estimated.",ioc:"SCADA HMI blank/unresponsive; field crew confirms breakers open with no grid fault; RTU communications loss alarm in control room"},
+    ]
+  },
+  {title:"Scenario C — Safety System Attack (TRITON/TRISIS-class)",actor:"Nation-state APT targeting Safety Instrumented Systems (SIS) at TANGEDCO thermal generation plant",prob:"LOW-MEDIUM — Catastrophic if successful",chip:"tcc",
+    phases:[
+      {l:"INITIAL COMPROMISE",tc:"T0865 – Spear-phishing",ac:"Spear-phish targets thermal plant engineers. Malware establishes long-term persistence on a workstation with access to both the Distributed Control System (DCS) and SIS networks.",ioc:"Unusual outbound traffic from engineering workstation; new scheduled task or service; unexpected process spawning"},
+      {l:"SIS RECONNAISSANCE",tc:"T0840 – Network Enumeration",ac:"Attacker identifies SIS brand, firmware version, and safety ladder logic for turbine/boiler emergency shutdown systems. Downloads vendor SIS programming software from internet.",ioc:"Undetected — no OT asset inventory or passive ICS scanning in place to flag this activity"},
+      {l:"SIS REPROGRAMMING",tc:"T0839 – Modify Control Logic",ac:"TRITON-class malware communicates with SIS controller via proprietary protocol. Attempts to modify safety logic to disable automatic shutdown on turbine overpressure or boiler overheat condition.",ioc:"Unexpected traffic to SIS controller IP (detectable only if OT NDR is deployed); SIS configuration change log entry if auditing exists"},
+      {l:"TRIGGER & IMPACT",tc:"T0826 – Loss of Safety / T0828 – Loss of Control",ac:"Attacker triggers a DCS process anomaly (overpressure event) while SIS is disabled. Plant cannot safely shut down. Potential result: turbine explosion, fire, equipment destruction, personnel injury, multi-month outage.",ioc:"Simultaneous DCS overpressure alarm + SIS non-response; field crew reports uncontrolled process excursion; physical damage to generation equipment"},
+    ]
+  },
+];
+
+const SIEM=[
+  {id:"UC-01",n:"Active Directory Brute Force",d:"IT",src:"Windows Security Events",att:"T1110 – Brute Force",logic:"≥10 failed logon events (Event ID 4625) from same source IP within 5 minutes → HIGH alert. Auto-block source IP at firewall after 20 failures in 10 minutes."},
+  {id:"UC-02",n:"Lateral Movement via SMB",d:"IT",src:"Windows Events / Sysmon",att:"T1021.002 – SMB/Win Admin Shares",logic:"New SMB connection from non-admin workstation to server subnet → MEDIUM. Remote execution via psexec/wmic → escalate to HIGH. Alert SOC within 5 minutes."},
+  {id:"UC-03",n:"LSASS Memory Dump",d:"IT",src:"Sysmon Event ID 10",att:"T1003.001 – LSASS Memory",logic:"Any process other than approved security tools accessing LSASS memory → CRITICAL. Immediate analyst triage and auto-isolate endpoint via SOAR within 2 minutes."},
+  {id:"UC-04",n:"Mass File Rename — Ransomware Indicator",d:"IT",src:"Sysmon File Create / Windows Audit",att:"T1486 – Data Encrypted for Impact",logic:"≥500 file rename/create events in 60 seconds from a single user account → CRITICAL. Auto-quarantine endpoint via SOAR and disable AD account pending investigation."},
+  {id:"UC-05",n:"Anomalous IEC 104 Command",d:"OT",src:"OT NDR (Claroty / Dragos feed)",att:"T0855 – Unauthorised Command Message",logic:"IEC 104 Type ID 45 or 46 (single/double command ASDU) originating from non-EMS source IP → CRITICAL. Immediate operator notification + full session packet capture."},
+  {id:"UC-06",n:"New Device on OT Network",d:"OT",src:"OT NDR / DHCP Logs",att:"T0848 – Rogue Master",logic:"Previously unseen MAC address appears on SCADA VLAN → HIGH. OT security notified within 5 minutes. Device blocked from SCADA communications pending investigation."},
+  {id:"UC-07",n:"Privileged Account Access Outside Hours",d:"IT+OT",src:"Windows / SCADA Auth Logs",att:"T1078 – Valid Accounts",logic:"Admin or SCADA operator account authenticates 20:00–06:00 weekdays or any time weekends without approved change ticket → MEDIUM alert + forced MFA re-challenge."},
+  {id:"UC-08",n:"Large Outbound Data Transfer",d:"IT",src:"Proxy / Firewall Logs",att:"T1041 – Exfiltration Over C2 Channel",logic:"Single outbound session >500MB to non-whitelisted external IP → HIGH. Auto-block at proxy, alert SOC analyst. Enrich with GeoIP and threat intel lookup on destination."},
+  {id:"UC-09",n:"ICS Engineering Software Outside Maintenance Window",d:"OT",src:"OT NDR + Windows Process Logs",att:"T0839 – Modify Control Logic",logic:"ICS programming software (Step 7, SIMATIC, RSLogix, TIA Portal) active on engineering workstation outside approved change management window → MEDIUM. OT security notification."},
+  {id:"UC-10",n:"VPN Login from Anomalous Geography",d:"IT",src:"VPN Auth Logs / GeoIP Feed",att:"T1078 – Valid Accounts",logic:"Successful VPN authentication from IP geolocated outside India → HIGH. Force MFA re-challenge, alert SOC analyst, place account on watchlist for 72 hours."},
+];
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let rf='all', sf='all', rsort={col:'score',dir:'desc'};
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const s=(r)=>r.L*r.I;
+const rat=(sc)=>sc>=20?'Critical':sc>=13?'High':sc>=6?'Medium':'Low';
+const rc=(sc)=>sc>=20?'#ef4444':sc>=13?'#f97316':sc>=6?'#eab308':'#22c55e';
+const rbg=(sc)=>sc>=20?'rgba(239,68,68,.18)':sc>=13?'rgba(249,115,22,.18)':sc>=6?'rgba(234,179,8,.18)':'rgba(34,197,94,.18)';
+const bc=(r)=>({Critical:'bc',High:'bh',Medium:'bm',Low:'bl'}[r]);
+const db=(d)=>d==='IT'?'<span class="badge bit">IT</span>':'<span class="badge bot">OT/SCADA</span>';
+const sb=(st)=>st==='Non-Conformant'?'<span class="badge bnc">Non-Conformant</span>':st==='Partial'?'<span class="badge bpa">Partial</span>':'<span class="badge bco">Conformant</span>';
+
+// ─── CLOCK ───────────────────────────────────────────────────────────────────
+function tick(){
+  const n=new Date();
+  document.getElementById('cd').textContent=n.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+  document.getElementById('ct').textContent=n.toLocaleTimeString('en-IN',{hour12:false});
+}
+setInterval(tick,1000);tick();
+
+// ─── TABS ────────────────────────────────────────────────────────────────────
+function showTab(id,btn){
+  document.querySelectorAll('[id^="tab-"]').forEach(t=>t.style.display='none');
+  document.querySelectorAll('.nb').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).style.display='';
+  if(btn)btn.classList.add('active');
+}
+
+// ─── HEAT MAP ────────────────────────────────────────────────────────────────
+function buildHM(){
+  const el=document.getElementById('hm-container');
+  let h=`<div style="font-family:var(--mono);font-size:9px;color:var(--txt3);margin-bottom:6px;padding-left:50px;letter-spacing:2px;text-transform:uppercase">IMPACT →</div>
+  <div style="display:flex">
+    <div style="writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--mono);font-size:9px;color:var(--txt3);letter-spacing:2px;text-transform:uppercase;display:flex;align-items:center;justify-content:center;padding-right:6px">LIKELIHOOD ↑</div>
+    <div>
+      <div style="display:flex;gap:3px;padding-left:46px;margin-bottom:4px">
+        ${[1,2,3,4,5].map(i=>`<div style="width:60px;text-align:center;font-family:var(--mono);font-size:10px;color:var(--txt3)">I=${i}</div>`).join('')}
+      </div>
+      <div style="display:flex;gap:3px">
+        <div style="display:flex;flex-direction:column;gap:3px;width:42px">
+          ${[5,4,3,2,1].map(l=>`<div style="height:50px;display:flex;align-items:center;justify-content:flex-end;padding-right:6px;font-family:var(--mono);font-size:10px;color:var(--txt3)">L=${l}</div>`).join('')}
+        </div>
+        <div>${[5,4,3,2,1].map(l=>`
+          <div style="display:flex;gap:3px;margin-bottom:3px">
+            ${[1,2,3,4,5].map(i=>{
+              const sc=l*i;
+              const ids=R.filter(r=>r.L===l&&r.I===i).map(r=>r.id).join(', ');
+              return`<div style="width:60px;height:50px;background:${rbg(sc)};color:${rc(sc)};display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:13px;font-weight:700;cursor:pointer;border:1px solid rgba(0,0,0,.3);transition:transform .15s,filter .15s;position:relative" 
+                title="${ids?'Risks: '+ids:'No risks at this score'}" 
+                onmouseover="this.style.transform='scale(1.12)';this.style.filter='brightness(1.3)';this.style.zIndex=10"
+                onmouseout="this.style.transform='';this.style.filter='';this.style.zIndex=''"
+                onclick="hmClick(${l},${i})">${sc}${ids?`<div style="position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:${rc(sc)};opacity:.8"></div>`:''}</div>`;
+            }).join('')}
+          </div>`).join('')}
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:12px;padding-left:46px;flex-wrap:wrap">
+        ${[['rgba(239,68,68,.5)','Critical (20–25)'],['rgba(249,115,22,.5)','High (13–19)'],['rgba(234,179,8,.5)','Medium (6–12)'],['rgba(34,197,94,.5)','Low (1–5)']].map(([c,l])=>`
+          <div style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px;color:var(--txt3)">
+            <div style="width:12px;height:12px;border-radius:2px;background:${c}"></div>${l}
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+  el.innerHTML=h;
+}
+
+function hmClick(l,i){
+  showTab('register',document.querySelectorAll('.nb')[1]);
+  rf='all';
+  document.querySelectorAll('#tab-register .fbtn').forEach((b,idx)=>{b.classList.toggle('active',idx===0)});
+  document.getElementById('rsrch').value='';
+  rsort={col:'score',dir:'desc'};
+  const subset=R.filter(r=>r.L===l&&r.I===i);
+  if(subset.length){
+    document.getElementById('rsrch').value=subset.map(r=>r.id).join(' OR ');
+    document.getElementById('rsrch').value='';
+    rf='all';
+  }
+  renderReg();
+}
+
+// ─── TOP TABLE ───────────────────────────────────────────────────────────────
+function buildTop(){
+  const data=[...R].filter(r=>s(r)>=13).sort((a,b)=>s(b)-s(a));
+  let h=`<thead><tr><th>Risk ID</th><th>Domain</th><th>Asset</th><th>Threat</th><th>Score</th><th>Rating</th></tr></thead><tbody>`;
+  data.forEach(r=>{const sc=s(r),ra=rat(sc);h+=`<tr>
+    <td><span class="rid">${r.id}</span></td>
+    <td>${db(r.d)}</td>
+    <td style="max-width:180px">${r.a}</td>
+    <td style="max-width:200px;color:var(--txt2)">${r.t}</td>
+    <td class="sco" style="color:${rc(sc)};background:${rbg(sc)}">${sc}</td>
+    <td><span class="badge ${bc(ra)}">${ra}</span></td>
+  </tr>`});
+  document.getElementById('top-tbl').innerHTML=h+'</tbody>';
+}
+
+// ─── GAP TABLE ───────────────────────────────────────────────────────────────
+function buildGap(){
+  let h=`<thead><tr><th>Theme</th><th>Control</th><th>Status</th><th>Finding</th><th>Recommendation</th></tr></thead><tbody>`;
+  GAPS.forEach(g=>{h+=`<tr>
+    <td style="font-family:var(--mono);font-size:10px;color:var(--txt3);white-space:nowrap">${g.th}</td>
+    <td style="font-family:var(--mono);font-size:11px;color:var(--amber);white-space:nowrap">${g.c}</td>
+    <td>${sb(g.s)}</td>
+    <td style="color:var(--txt2);font-size:12px;max-width:240px">${g.f}</td>
+    <td style="color:var(--cyan);font-size:12px;max-width:240px">${g.r}</td>
+  </tr>`});
+  document.getElementById('gap-tbl').innerHTML=h+'</tbody>';
+}
+
+// ─── RISK REGISTER ───────────────────────────────────────────────────────────
+function setRF(btn,f){rf=f;document.querySelectorAll('#tab-register .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderReg()}
+function renderReg(){
+  const q=(document.getElementById('rsrch').value||'').toLowerCase();
+  let data=[...R];
+  if(q)data=data.filter(r=>(r.id+r.a+r.t+r.v+r.d).toLowerCase().includes(q));
+  if(rf==='IT')data=data.filter(r=>r.d==='IT');
+  else if(rf==='OT/SCADA')data=data.filter(r=>r.d==='OT/SCADA');
+  else if(['Critical','High','Medium','Low'].includes(rf))data=data.filter(r=>rat(s(r))===rf);
+  data.sort((a,b)=>{
+    let av,bv;
+    if(rsort.col==='score'){av=s(a);bv=s(b)}
+    else if(rsort.col==='id'){av=a.id;bv=b.id}
+    else if(rsort.col==='domain'){av=a.d;bv=b.d}
+    else{av=a[rsort.col]||'';bv=b[rsort.col]||''}
+    return (av<bv?-1:av>bv?1:0)*(rsort.dir==='asc'?1:-1);
+  });
+  const cols=[{k:'id',l:'Risk ID'},{k:'domain',l:'Domain'},{k:'asset',l:'Asset'},{k:'threat',l:'Threat'},{k:'vuln',l:'Vulnerability'},{k:'L',l:'L'},{k:'I',l:'I'},{k:'score',l:'Score'},{k:'rating',l:'Rating'},{k:'controls',l:'Controls'},{k:'treatment',l:'Treatment'}];
+  let h=`<thead><tr>${cols.map(c=>{const cl=rsort.col===c.k?(rsort.dir==='asc'?'sa':'sd'):'';return`<th class="${cl}" onclick="sortR('${c.k}')">${c.l}</th>`}).join('')}</tr></thead><tbody>`;
+  if(!data.length)h+=`<tr><td colspan="11" style="text-align:center;color:var(--txt3);padding:32px;font-family:var(--mono);font-size:11px">NO RISKS MATCH FILTER</td></tr>`;
+  data.forEach(r=>{const sc=s(r),ra=rat(sc);h+=`<tr>
+    <td><span class="rid">${r.id}</span></td>
+    <td>${db(r.d)}</td>
+    <td style="min-width:140px;max-width:180px">${r.a}</td>
+    <td style="min-width:160px;max-width:200px;color:var(--txt2)">${r.t}</td>
+    <td style="min-width:140px;max-width:180px;color:var(--txt3)">${r.v}</td>
+    <td style="text-align:center;font-family:var(--mono);font-weight:700;color:var(--amber)">${r.L}</td>
+    <td style="text-align:center;font-family:var(--mono);font-weight:700;color:var(--amber)">${r.I}</td>
+    <td class="sco" style="color:${rc(sc)};background:${rbg(sc)}">${sc}</td>
+    <td><span class="badge ${bc(ra)}">${ra}</span></td>
+    <td class="cref">${r.c}</td>
+    <td style="min-width:200px;max-width:260px;color:var(--cyan)">${r.tx}</td>
+  </tr>`});
+  document.getElementById('reg-tbl').innerHTML=h+'</tbody>';
+}
+function sortR(col){rsort={col,dir:rsort.col===col&&rsort.dir==='desc'?'asc':'desc'};renderReg()}
+
+// ─── ZONES ───────────────────────────────────────────────────────────────────
+function buildZones(){
+  document.getElementById('zone-grid').innerHTML=ZONES.map(z=>`
+    <div class="zc" style="--zclr:${z.c}">
+      <div class="zid">${z.id} · ${z.lv}</div>
+      <div class="zname" style="color:${z.c}">${z.n}</div>
+      <div class="zlevel"></div>
+      <div class="zassets">${z.as}</div>
+      <div class="zslrow"><div class="zsll">Current SL</div><div class="zslbar"><div class="zslf" style="width:${z.sl/4*100}%"></div></div><div class="zslv">SL-${z.sl}</div></div>
+      <div class="zslrow"><div class="zsll">Target SL</div><div class="zslbar"><div class="zslf" style="width:${z.tsl/4*100}%;opacity:.35"></div></div><div class="zslv" style="opacity:.5">SL-${z.tsl}</div></div>
+      <div style="margin-top:10px">${sb(z.g)}</div>
+      <div style="font-size:11px;color:var(--txt3);margin-top:6px;line-height:1.5">${z.gd}</div>
+    </div>`).join('');
+  document.getElementById('cond-list').innerHTML=CONDS.map(c=>`
+    <div class="ci">
+      <div class="citop">
+        <span class="cid2">${c.id}</span>
+        <div class="cflow"><span class="ctag">${c.f}</span><span class="carr">→</span><span class="ctag">${c.t}</span></div>
+      </div>
+      <div class="cpurp">${c.p}</div>
+      <div class="cctrl">${c.ctrl}</div>
+    </div>`).join('');
+}
+
+// ─── SCENARIOS ───────────────────────────────────────────────────────────────
+function showSc(idx,btn){
+  document.querySelectorAll('.sctab').forEach(t=>t.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const sc=SC[idx];
+  document.getElementById('sc-display').innerHTML=`
+    <div class="sccard">
+      <div class="sctop">
+        <div class="sc-left">
+          <div class="sctitle">${sc.title}</div>
+          <div class="scmeta">Actor: <span>${sc.actor}</span><br>Probability: <span>${sc.prob}</span></div>
+        </div>
+        <div class="tchip ${sc.chip}">${sc.chip==='tcc'?'CRITICAL THREAT':'HIGH THREAT'}</div>
+      </div>
+      <div class="chain">
+        <div class="chaintitle">Attack Chain — MITRE ATT&CK for ICS</div>
+        ${sc.phases.map(p=>`
+          <div class="phase">
+            <div class="plbl">${p.l}</div>
+            <div class="pnode"><div class="pdot"></div></div>
+            <div class="pbody">
+              <div class="ptech">${p.tc}</div>
+              <div class="paction">${p.ac}</div>
+              <div class="pioc"><span class="piocl">IOC — </span>${p.ioc}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+// ─── SIEM ────────────────────────────────────────────────────────────────────
+function setSF(btn,f){sf=f;document.querySelectorAll('#tab-siem .fbtn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderSiem()}
+function renderSiem(){
+  const q=(document.getElementById('ssrch').value||'').toLowerCase();
+  let data=[...SIEM];
+  if(sf!=='all')data=data.filter(c=>c.d===sf);
+  if(q)data=data.filter(c=>(c.id+c.n+c.att+c.logic+c.src).toLowerCase().includes(q));
+  const db2=(d)=>d==='IT'?'<span class="badge bit">IT</span>':d==='OT'?'<span class="badge bot">OT</span>':'<span class="badge bpa">IT+OT</span>';
+  document.getElementById('siem-list').innerHTML=data.length?data.map(c=>`
+    <div class="si">
+      <div class="sih" onclick="toggleSiem(this)">
+        <span class="siid">${c.id}</span>
+        <span class="sinm">${c.n}</span>
+        ${db2(c.d)}
+        <span class="sichev">▼</span>
+      </div>
+      <div class="sibody">
+        <div class="sifield"><span class="sikey">Data Source</span><span class="sival">${c.src}</span></div>
+        <div class="sifield"><span class="sikey">ATT&CK</span><span class="sival" style="color:var(--cyan)">${c.att}</span></div>
+        <div class="sifield"><span class="sikey">Logic</span><div class="lbox">${c.logic}</div></div>
+      </div>
+    </div>`).join(''):`<div style="text-align:center;color:var(--txt3);padding:32px;font-family:var(--mono);font-size:11px">NO USE CASES MATCH FILTER</div>`;
+}
+function toggleSiem(hdr){
+  const body=hdr.nextElementSibling,chev=hdr.querySelector('.sichev'),open=body.classList.toggle('open');
+  chev.textContent=open?'▲':'▼';chev.style.color=open?'var(--amber)':'var(--txt3)';
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+buildHM();buildTop();buildGap();buildZones();renderReg();showSc(0,null);renderSiem();
+</script>
+</body>
+</html>

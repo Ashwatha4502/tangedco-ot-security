@@ -1,0 +1,59 @@
+<!--
+  tangedco_decoder.xml
+  ─────────────────────────────────────────────────────────────────
+  Custom Wazuh decoders to parse TANGEDCO anomaly detection output.
+  
+  Handles two log formats:
+  1. JSON syslog from feed_alerts.py (Python anomaly tool → Wazuh)
+  2. Simulated SCADA syslog format (from historian / EMS log export)
+  
+  Deploy to: /var/ossec/etc/decoders/tangedco_decoder.xml
+  Test with: /var/ossec/bin/wazuh-logtest
+  ─────────────────────────────────────────────────────────────────
+-->
+
+<decoder name="tangedco_anomaly">
+  <!-- Match JSON events from the Python anomaly feed script -->
+  <prematch>{"source":"tangedco_anomaly"</prematch>
+</decoder>
+
+<decoder name="tangedco_anomaly_fields">
+  <parent>tangedco_anomaly</parent>
+  <!-- Extract all key fields from the JSON anomaly event -->
+  <regex offset="after_prematch">"timestamp":"(\.+?)","anomaly_id":"(\.+?)","anomaly_type":"(\.+?)","severity":"(\.+?)","detector":"(\.+?)","feature":"(\.+?)","value":(\.+?),"confidence":(\.+?),"technique":"(\.+?)","src_zone":"(\.+?)","description":"(\.+?)"</regex>
+  <order>timestamp,anomaly_id,anomaly_type,severity,detector,feature,value,confidence,technique,src_zone,description</order>
+</decoder>
+
+<!-- ── SCADA syslog format from historian ── -->
+<decoder name="tangedco_scada_syslog">
+  <!-- Format: TANGEDCO-SCADA [ZONE] [EVENT_TYPE] details -->
+  <prematch>TANGEDCO-SCADA</prematch>
+</decoder>
+
+<decoder name="tangedco_scada_syslog_fields">
+  <parent>tangedco_scada_syslog</parent>
+  <regex>TANGEDCO-SCADA \[(\w+)\] \[(\w+)\] user=(\S+) action=(\S+) target=(\S+)</regex>
+  <order>src_zone,event_type,srcuser,action,target</order>
+</decoder>
+
+<!-- ── EMS / SCADA login events ── -->
+<decoder name="tangedco_ems_auth">
+  <prematch>TANGEDCO-EMS AUTH</prematch>
+</decoder>
+
+<decoder name="tangedco_ems_auth_fields">
+  <parent>tangedco_ems_auth</parent>
+  <regex>TANGEDCO-EMS AUTH (SUCCESS|FAILURE) user=(\S+) src=(\S+) system=(\S+)</regex>
+  <order>status,srcuser,srcip,dstuser</order>
+</decoder>
+
+<!-- ── Firewall / boundary events ── -->
+<decoder name="tangedco_firewall">
+  <prematch>TANGEDCO-FW</prematch>
+</decoder>
+
+<decoder name="tangedco_firewall_fields">
+  <parent>tangedco_firewall</parent>
+  <regex>TANGEDCO-FW (PERMIT|DENY|DROP) src=([\d\.]+) dst=([\d\.]+) dport=(\d+) proto=(\w+)</regex>
+  <order>action,srcip,dstip,dstport,protocol</order>
+</decoder>

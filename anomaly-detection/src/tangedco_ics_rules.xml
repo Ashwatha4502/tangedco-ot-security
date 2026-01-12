@@ -1,0 +1,449 @@
+<!--
+  tangedco_ics_rules.xml
+  ─────────────────────────────────────────────────────────────────
+  Custom Wazuh detection rules for TANGEDCO OT/ICS environment.
+  
+  Rule ID range: 100100–100199 (custom range, avoids Wazuh built-ins)
+  
+  These rules fire on log data fed by:
+    - feed_alerts.py (Python anomaly detections → syslog → Wazuh)
+    - Wazuh agents on SCADA workstations / historian servers
+    - Syslog from network devices at IT/OT boundary
+  
+  Each rule maps to:
+    - MITRE ATT&CK for ICS technique
+    - ISO/IEC 27001:2022 Annex A control
+    - Severity level aligned to TANGEDCO risk register
+  
+  Deploy to: /var/ossec/etc/rules/tangedco_ics_rules.xml
+  Reload:    systemctl restart wazuh-manager
+             OR: /var/ossec/bin/ossec-control restart
+  ─────────────────────────────────────────────────────────────────
+-->
+
+<group name="tangedco,ics,ot_security">
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 1: SCADA DATA INTEGRITY
+       Detects anomalies in historian / data acquisition layer
+       MITRE ATT&CK ICS: T0813, T0856
+       ISO 27001: A.8.16 (Monitoring), A.8.24 (Cryptography)
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Base decoder match rule for TANGEDCO anomaly feed -->
+  <rule id="100100" level="0">
+    <decoded_as>tangedco_anomaly</decoded_as>
+    <description>TANGEDCO ICS anomaly detection event received</description>
+  </rule>
+
+  <!-- SCADA Data Dropout — Loss of View -->
+  <rule id="100101" level="15" frequency="1" timeframe="60">
+    <if_sid>100100</if_sid>
+    <field name="anomaly_type">Loss_of_View|SCADA_DATA_DROPOUT|LOSS_OF_VIEW</field>
+    <description>CRITICAL: SCADA historian data dropout detected. Loss of monitoring visibility. 
+    Possible ransomware-induced SCADA shutdown or wiper malware (TRITON/Industroyer-class).
+    ATT&amp;CK ICS: T0813 – Denial of View | T0816 – Device Restart/Shutdown.
+    ISO 27001: A.8.16 Monitoring Activities.</description>
+    <mitre>
+      <id>T0813</id>
+      <id>T0816</id>
+    </mitre>
+    <group>tangedco,critical,scada_integrity,loss_of_view</group>
+  </rule>
+
+  <!-- Sensor Flatline / Spoofing -->
+  <rule id="100102" level="12">
+    <if_sid>100100</if_sid>
+    <field name="anomaly_type">Sensor_Spoofing|SUSPICIOUS_FREQUENCY|MITM</field>
+    <description>HIGH: Sensor flatline or suspicious reading stability detected.
+    Readings frozen at static value — physically impossible in live grid.
+    Possible Man-in-the-Middle on IEC 104/DNP3 protocol (T0856 Spoof Reporting Message).
+    ISO 27001: A.8.24 Cryptography (unauthenticated ICS protocols).</description>
+    <mitre>
+      <id>T0856</id>
+      <id>T0830</id>
+    </mitre>
+    <group>tangedco,high,scada_integrity,sensor_spoof</group>
+  </rule>
+
+  <!-- Repeated sensor anomalies — possible sustained MITM -->
+  <rule id="100103" level="15" frequency="3" timeframe="3600">
+    <if_sid>100102</if_sid>
+    <same_field>src_zone</same_field>
+    <description>CRITICAL: Multiple sensor spoofing events from same OT zone within 1 hour.
+    Escalation: sustained MITM attack on ICS protocol layer likely in progress.
+    Immediate OT network isolation of affected zone required.</description>
+    <mitre>
+      <id>T0856</id>
+    </mitre>
+    <group>tangedco,critical,scada_integrity,sustained_attack</group>
+  </rule>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 2: UNAUTHORISED COMMANDS / DEMAND MANIPULATION
+       Detects anomalous control commands to field devices
+       MITRE ATT&CK ICS: T0855
+       ISO 27001: A.8.20 (Network Security), A.8.22 (Filtering)
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Demand Manipulation — Unauthorised Command -->
+  <rule id="100110" level="14">
+    <if_sid>100100</if_sid>
+    <field name="anomaly_type">Demand_Manipulation|Unauthorised_Command|T0855</field>
+    <description>CRITICAL: Anomalous grid demand change detected — pattern consistent with 
+    unauthorised IEC 104 or DNP3 command execution.
+    Sudden demand drop followed by surge — possible breaker open/close sequence.
+    ATT&amp;CK ICS: T0855 – Unauthorised Command Message.
+    ISO 27001: A.8.20 Network Security.</description>
+    <mitre>
+      <id>T0855</id>
+    </mitre>
+    <group>tangedco,critical,unauthorised_command,grid_manipulation</group>
+  </rule>
+
+  <!-- Grid frequency excursion — correlates with breaker events -->
+  <rule id="100111" level="12">
+    <if_sid>100100</if_sid>
+    <field name="anomaly_type">FREQUENCY_EXCURSION</field>
+    <description>HIGH: Grid frequency outside safe operating range (49.6–50.4 Hz).
+    Could indicate simultaneous breaker operations caused by adversary commands,
+    or natural fault — requires immediate correlation with SCADA command log.
+    ATT&amp;CK ICS: T0855 / T0826 – Loss of Availability.</description>
+    <mitre>
+      <id>T0855</id>
+      <id>T0826</id>
+    </mitre>
+    <group>tangedco,high,grid_stability,frequency_excursion</group>
+  </rule>
+
+  <!-- Demand manipulation + frequency excursion within 5 min — high confidence -->
+  <rule id="100112" level="15" frequency="2" timeframe="300">
+    <if_sid>100110,100111</if_sid>
+    <description>CRITICAL CORRELATION: Demand manipulation AND frequency excursion within 5 minutes.
+    High-confidence indicator of active SCADA attack in progress.
+    Escalate to Tier 2 immediately. Consider switching affected substations to manual control.
+    Notify SRLDC (Southern Regional Load Despatch Centre).</description>
+    <mitre>
+      <id>T0855</id>
+      <id>T0826</id>
+    </mitre>
+    <group>tangedco,critical,correlated_attack,immediate_response</group>
+  </rule>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 3: RANSOMWARE / IT-OT LATERAL MOVEMENT
+       Detects ransomware indicators and IT→OT pivot attempts
+       MITRE ATT&CK ICS: T0816, T0882
+       ISO 27001: A.8.7 (Malware), A.8.13 (Backup), A.8.20 (Network)
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Ransomware SCADA impact -->
+  <rule id="100120" level="15">
+    <if_sid>100100</if_sid>
+    <field name="anomaly_type">Ransomware|SCADA_Blackout</field>
+    <description>CRITICAL: Ransomware-induced SCADA blackout detected.
+    IT systems compromised — OT monitoring has gone dark.
+    Activate Incident Response Playbook: IRP-001 (Ransomware + IT/OT Pivot).
+    ATT&amp;CK ICS: T0816 Device Restart/Shutdown | T0882 Theft of Operational Data.
+    ISO 27001: A.8.7 Malware Protection | A.8.13 Information Backup.</description>
+    <mitre>
+      <id>T0816</id>
+      <id>T0882</id>
+    </mitre>
+    <group>tangedco,critical,ransomware,scada_blackout,ir_required</group>
+  </rule>
+
+  <!-- Windows: Mass file rename (ransomware indicator on historian) -->
+  <rule id="100121" level="14">
+    <if_group>syscheck</if_group>
+    <match>\.tangedco$|\.locked$|\.encrypted$|TANGEDCO_DECRYPT</match>
+    <description>CRITICAL: Ransomware file extension detected on monitored host.
+    Possible ransomware encryption in progress on SCADA historian or engineering workstation.
+    Isolate host immediately. ATT&amp;CK: T1486 Data Encrypted for Impact.</description>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+    <group>tangedco,critical,ransomware,file_encryption</group>
+  </rule>
+
+  <!-- Windows: VSS deletion — classic ransomware pre-encryption step -->
+  <rule id="100122" level="14">
+    <if_group>windows</if_group>
+    <match>vssadmin delete shadows|wmic shadowcopy delete|bcdedit /set recoveryenabled no</match>
+    <description>CRITICAL: Shadow copy deletion detected — classic ransomware pre-encryption step.
+    Host: $(hostname). Isolate immediately and preserve forensic image before remediation.
+    ATT&amp;CK: T1490 Inhibit System Recovery.</description>
+    <mitre>
+      <id>T1490</id>
+    </mitre>
+    <group>tangedco,critical,ransomware,shadow_delete</group>
+  </rule>
+
+  <!-- Lateral movement to OT historian -->
+  <rule id="100123" level="13">
+    <if_group>windows</if_group>
+    <match>historian|scada|ems_server|ot_workstation</match>
+    <field name="data.win.eventdata.logonType">3|10</field>
+    <field name="data.win.eventdata.workstationName" negate="yes">^OT_|^SCADA_|^EMS_</field>
+    <description>HIGH: Network logon to OT/SCADA system from non-OT source workstation.
+    Possible lateral movement from IT network to OT zone (IT-05 risk — flat network).
+    Source: $(data.win.eventdata.workstationName) → OT target.
+    ATT&amp;CK ICS: T0886 Remote Services | T0812 Default Credentials.</description>
+    <mitre>
+      <id>T0886</id>
+      <id>T0812</id>
+    </mitre>
+    <group>tangedco,high,lateral_movement,it_ot_pivot</group>
+  </rule>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 4: OFF-HOURS / PRIVILEGED ACCESS ANOMALIES
+       Detects suspicious after-hours SCADA access
+       MITRE ATT&CK ICS: T0859
+       ISO 27001: A.5.15 (Access Control), A.8.5 (PAM)
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Off-hours demand change — possible unauthorised operator -->
+  <rule id="100130" level="11">
+    <if_sid>100100</if_sid>
+    <field name="anomaly_type">OffHours_Privileged_Access|OFFHOURS_DEMAND</field>
+    <description>HIGH: Anomalous grid demand change detected during off-peak hours (01:00–05:00).
+    Change magnitude exceeds natural load variation threshold for this time window.
+    Possible unauthorised SCADA operator access or stolen credential misuse.
+    ATT&amp;CK ICS: T0859 – Valid Accounts (Privileged).
+    ISO 27001: A.8.5 Privileged Access Management.</description>
+    <mitre>
+      <id>T0859</id>
+    </mitre>
+    <group>tangedco,high,offhours_access,privileged_account</group>
+  </rule>
+
+  <!-- SCADA login between 20:00–06:00 -->
+  <rule id="100131" level="10">
+    <if_group>authentication_success</if_group>
+    <match>scada|ems|historian|hmi_server</match>
+    <time>20:00-06:00</time>
+    <description>MEDIUM: Successful authentication to OT/SCADA system outside business hours.
+    User: $(data.srcuser) | System: $(data.dstuser) | Time: $(timestamp).
+    Verify against approved change management schedule.
+    ATT&amp;CK ICS: T0859 Valid Accounts. ISO 27001: A.5.15 Access Control.</description>
+    <mitre>
+      <id>T0859</id>
+    </mitre>
+    <group>tangedco,medium,offhours_access,authentication</group>
+  </rule>
+
+  <!-- Weekend SCADA access — no approved change ticket -->
+  <rule id="100132" level="10">
+    <if_group>authentication_success</if_group>
+    <match>scada|ems|historian</match>
+    <weekday>saturday,sunday</weekday>
+    <description>MEDIUM: SCADA/EMS system access on weekend detected.
+    Weekend access requires approved change management ticket.
+    Verify: $(data.srcuser) accessed $(data.dstuser) on $(timestamp).
+    ISO 27001: A.5.15 Access Control | A.8.5 PAM.</description>
+    <group>tangedco,medium,weekend_access,authentication</group>
+  </rule>
+
+  <!-- Multiple off-hours SCADA logins within 1 hour — escalate -->
+  <rule id="100133" level="13" frequency="3" timeframe="3600">
+    <if_sid>100131,100132</if_sid>
+    <same_field>data.srcuser</same_field>
+    <description>HIGH: Same user account accessing SCADA systems multiple times outside business hours.
+    User: $(data.srcuser). Pattern suggests credential misuse or active intrusion.
+    Escalate to Tier 2. Consider temporary account suspension pending investigation.
+    ATT&amp;CK ICS: T0859 Valid Accounts.</description>
+    <mitre>
+      <id>T0859</id>
+    </mitre>
+    <group>tangedco,high,offhours_access,repeated,escalate</group>
+  </rule>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 5: NETWORK / BOUNDARY VIOLATIONS
+       Detects IT→OT traffic policy violations
+       MITRE ATT&CK ICS: T0886, T0843
+       ISO 27001: A.8.20 (Network Security), A.8.22 (Filtering)
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Direct connection from internet to OT zone -->
+  <rule id="100140" level="15">
+    <if_group>firewall</if_group>
+    <match>PERMIT|ALLOW|ACCEPT</match>
+    <field name="data.srcip">^(?!10\.|^192\.168\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-1]\.)</field>
+    <field name="data.dstport">2404|20000|502|47808|4840|102</field>
+    <description>CRITICAL: External internet traffic permitted to ICS protocol port.
+    Port $(data.dstport) = ICS protocol (IEC 104/DNP3/Modbus/BACnet/OPC-UA/S7).
+    Source: $(data.srcip). This should NEVER be allowed. 
+    Immediate investigation required — possible internet-exposed HMI.
+    ATT&amp;CK ICS: T0866 Exploitation of Remote Services.</description>
+    <mitre>
+      <id>T0866</id>
+    </mitre>
+    <group>tangedco,critical,boundary_violation,internet_to_ot</group>
+  </rule>
+
+  <!-- ICS protocol traffic from non-SCADA source -->
+  <rule id="100141" level="12">
+    <if_group>firewall</if_group>
+    <match>PERMIT|ALLOW|ACCEPT</match>
+    <field name="data.dstport">2404|20000|502</field>
+    <field name="data.srcip" negate="yes">^192\.168\.100\.|^10\.10\.1\.</field>
+    <description>HIGH: IEC 104/DNP3/Modbus traffic from non-authorised source IP.
+    Source $(data.srcip) is not in approved SCADA master station subnet.
+    Possible rogue master or lateral movement. 
+    ATT&amp;CK ICS: T0855 Unauthorised Command | T0848 Rogue Master.</description>
+    <mitre>
+      <id>T0855</id>
+      <id>T0848</id>
+    </mitre>
+    <group>tangedco,high,boundary_violation,ics_protocol</group>
+  </rule>
+
+  <!-- Historian accessible from corporate LAN (IT-05 risk) -->
+  <rule id="100142" level="10">
+    <if_group>firewall</if_group>
+    <match>PERMIT|ALLOW|ACCEPT</match>
+    <field name="data.dstport">1433|5432|1521</field>
+    <field name="data.srcip">^192\.168\.1\.</field>
+    <field name="data.dstip">^192\.168\.100\.</field>
+    <description>MEDIUM: Database port access from corporate LAN to OT/historian subnet.
+    Source: $(data.srcip) → Target: $(data.dstip):$(data.dstport).
+    Historian should be in DMZ (Z-2), not directly accessible from enterprise zone (Z-1).
+    Remediation: Implement Purdue Model DMZ. ISO 27001: A.8.20 Network Security.</description>
+    <group>tangedco,medium,boundary_violation,historian_exposure</group>
+  </rule>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 6: PRIVILEGE ESCALATION / CREDENTIAL ABUSE
+       Detects PAM policy violations and privilege abuse
+       MITRE ATT&CK: T1078, T1068
+       ISO 27001: A.5.15, A.5.18, A.8.5
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Shared SCADA account usage (OT-06 risk) -->
+  <rule id="100150" level="11">
+    <if_group>authentication_success</if_group>
+    <match>scada_admin|ems_admin|historian_sa|ot_service</match>
+    <description>HIGH: Shared/service account login to OT system detected.
+    Account: $(data.srcuser). Shared accounts violate ISO 27001 A.8.5 (PAM) 
+    and make attribution impossible for forensic investigation.
+    Action: Identify actual user. Enforce individual named accounts.</description>
+    <group>tangedco,high,shared_account,attribution_loss</group>
+  </rule>
+
+  <!-- LSASS memory access on OT workstation -->
+  <rule id="100151" level="14">
+    <if_group>sysmon</if_group>
+    <field name="data.win.eventdata.targetImage">lsass.exe</field>
+    <field name="data.win.eventdata.sourceImage" negate="yes">^C:\\Windows\\System32\\|^C:\\Program Files\\(Windows Defender|CrowdStrike|Wazuh)</field>
+    <description>CRITICAL: LSASS memory access from non-approved process on OT workstation.
+    Source process: $(data.win.eventdata.sourceImage).
+    Possible credential harvesting (Mimikatz) — precursor to lateral movement to SCADA systems.
+    Isolate workstation immediately. ATT&amp;CK: T1003.001 LSASS Memory.</description>
+    <mitre>
+      <id>T1003.001</id>
+    </mitre>
+    <group>tangedco,critical,credential_theft,lsass</group>
+  </rule>
+
+  <!-- New local admin created on OT system -->
+  <rule id="100152" level="12">
+    <if_group>windows</if_group>
+    <field name="data.win.system.eventID">4720</field>
+    <match>scada|ems|historian|hmi</match>
+    <description>HIGH: New user account created on OT/SCADA system.
+    New account: $(data.win.eventdata.targetUserName).
+    Created by: $(data.win.eventdata.subjectUserName).
+    Verify against approved change ticket. Possible persistence mechanism.
+    ATT&amp;CK ICS: T0859 Valid Accounts. ISO 27001: A.5.18 Access Rights.</description>
+    <mitre>
+      <id>T0859</id>
+    </mitre>
+    <group>tangedco,high,account_creation,persistence</group>
+  </rule>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 7: VULNERABILITY / PATCH COMPLIANCE
+       Monitors for known ICS CVEs
+       ISO 27001: A.8.8 (Vulnerability Management)
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Known ICS vulnerability exploitation attempt -->
+  <rule id="100160" level="13">
+    <if_sid>100100</if_sid>
+    <match>CVE-2022-0028|CVE-2021-44228|CVE-2023-46604|CVE-2019-0708|CVE-2021-34527</match>
+    <description>CRITICAL: Known high-severity CVE exploitation attempt detected.
+    CVE: $(match). These CVEs are actively exploited in ICS/OT environments.
+    Check patch status of affected systems immediately.
+    ISO 27001: A.8.8 Management of Technical Vulnerabilities.</description>
+    <group>tangedco,critical,vulnerability_exploitation,cve</group>
+  </rule>
+
+  <!-- Outdated ICS software version detected -->
+  <rule id="100161" level="7">
+    <if_sid>100100</if_sid>
+    <field name="anomaly_type">FIRMWARE_VERSION|LEGACY_DEVICE</field>
+    <description>MEDIUM: Legacy ICS device or outdated firmware version detected.
+    Device may have unpatched vulnerabilities. Schedule maintenance window for update.
+    ISO 27001: A.8.8 Vulnerability Management | A.8.9 Configuration Management.</description>
+    <group>tangedco,medium,patch_compliance,legacy_device</group>
+  </rule>
+
+
+  <!-- ════════════════════════════════════════════════════════════
+       GROUP 8: COMPOSITE / CORRELATED ALERTS
+       High-fidelity multi-signal correlations
+       These represent active attack campaigns, not isolated events
+  ════════════════════════════════════════════════════════════════ -->
+
+  <!-- Full kill chain: offhours access + lateral movement + SCADA command -->
+  <rule id="100170" level="15" frequency="3" timeframe="7200">
+    <if_sid>100130,100131,100123,100110</if_sid>
+    <description>CRITICAL — ACTIVE ICS ATTACK CAMPAIGN DETECTED:
+    Multiple attack-chain indicators observed within 2-hour window:
+    - Off-hours privileged access (T0859)
+    - IT-to-OT lateral movement (T0886)  
+    - Anomalous SCADA demand manipulation (T0855)
+    This pattern matches Industroyer2 / Sandworm TTPs.
+    IMMEDIATE ACTIONS:
+    1. Notify CISO and OT Security Lead
+    2. Activate IRP-002 (SCADA Breach Playbook)
+    3. Alert SRLDC and CERT-In ICS team
+    4. Switch affected substations to manual control</description>
+    <mitre>
+      <id>T0859</id>
+      <id>T0886</id>
+      <id>T0855</id>
+    </mitre>
+    <group>tangedco,critical,kill_chain,active_campaign,p0_incident</group>
+  </rule>
+
+  <!-- Ransomware chain: file encrypt + VSS delete + SCADA blackout -->
+  <rule id="100171" level="15" frequency="2" timeframe="3600">
+    <if_sid>100121,100122,100120</if_sid>
+    <description>CRITICAL — RANSOMWARE + SCADA IMPACT CONFIRMED:
+    Ransomware encryption, shadow copy deletion, AND SCADA blackout
+    detected within 1-hour window. This is an active ransomware incident
+    with confirmed OT impact — not a drill.
+    IMMEDIATE ACTIONS:
+    1. Activate IRP-001 (Ransomware + IT/OT Pivot Playbook)
+    2. Isolate affected IT hosts via VLAN quarantine
+    3. Verify OT systems are on independent power / manual ops
+    4. Notify CERT-In within 6 hours (mandatory per CERT-In Directions 2022)
+    5. Preserve forensic images BEFORE remediation</description>
+    <mitre>
+      <id>T1486</id>
+      <id>T1490</id>
+      <id>T0816</id>
+    </mitre>
+    <group>tangedco,critical,ransomware,scada_impact,p0_incident,cert_in_notify</group>
+  </rule>
+
+</group>
