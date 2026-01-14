@@ -793,3 +793,4 @@ timestamp,index,detector,feature,value,expected_range,confidence,severity,techni
 2023-12-30 23:00:00,8735,Isolation Forest,multi-feature,-0.5773,IF score > -0.1 (normal),90,High,Unknown — multi-feature deviation,"Multi-dimensional anomaly: IF anomaly score -0.5773. Combination of demand, frequency, power factor, and time features is statistically unusual.",Normal
 2023-12-31 02:00:00,8738,OT Rule: OFFHOURS_DEMAND_CHANGE,OFFHOURS_DEMAND_CHANGE,7637.2,See rule definition,78,High,T0859 / T0855,Demand change of 504 MW at 02:00 (off-peak hours). Natural load variation at this hour typically <150 MW. Possible unauthorised operator access.,Normal
 2023-12-31 04:00:00,8740,OT Rule: OFFHOURS_DEMAND_CHANGE,OFFHOURS_DEMAND_CHANGE,7924.4,See rule definition,78,High,T0859 / T0855,Demand change of 519 MW at 04:00 (off-peak hours). Natural load variation at this hour typically <150 MW. Possible unauthorised operator access.,Normal
+# zscore detector
