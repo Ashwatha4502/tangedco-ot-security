@@ -796,3 +796,4 @@ timestamp,index,detector,feature,value,expected_range,confidence,severity,techni
 # zscore detector
 # iqr detector
 # isolation forest
+# ot rule engine
