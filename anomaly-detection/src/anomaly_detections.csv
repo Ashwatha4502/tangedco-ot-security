@@ -797,3 +797,4 @@ timestamp,index,detector,feature,value,expected_range,confidence,severity,techni
 # iqr detector
 # isolation forest
 # ot rule engine
+# attack scenarios
