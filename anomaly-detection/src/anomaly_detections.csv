@@ -798,3 +798,4 @@ timestamp,index,detector,feature,value,expected_range,confidence,severity,techni
 # isolation forest
 # ot rule engine
 # attack scenarios
+# thehive integration
