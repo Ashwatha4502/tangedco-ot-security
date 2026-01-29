@@ -799,3 +799,4 @@ timestamp,index,detector,feature,value,expected_range,confidence,severity,techni
 # ot rule engine
 # attack scenarios
 # thehive integration
+# misp feeds
