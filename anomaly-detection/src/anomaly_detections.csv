@@ -801,3 +801,4 @@ timestamp,index,detector,feature,value,expected_range,confidence,severity,techni
 # thehive integration
 # misp feeds
 # output charts
+# fix recall
