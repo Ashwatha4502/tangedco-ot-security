@@ -146,3 +146,4 @@ Real historical data: [Kaggle - Tamil Nadu Electricity Board Hourly Readings](ht
 
 *Built for TANGEDCO - Tamil Nadu's state power utility serving 3 crore consumers*  
 *ISO/IEC 27001:2022 - IEC 62443 - MITRE ATT&CK for ICS - Wazuh 4.7 - TheHive 5.2 - MISP*
+
